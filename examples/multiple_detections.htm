@@ -1,0 +1,120 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+  <script src="//mtschirs.github.io/js-objectdetect/examples/js/compatibility.js"></script>
+  <script src="//mtschirs.github.io/js-objectdetect/js/objectdetect.js"></script>
+  <script src="//mtschirs.github.io/js-objectdetect/js/objectdetect.eye.js"></script>
+  <script src="//mtschirs.github.io/js-objectdetect/js/objectdetect.frontalcatface.js"></script>
+  <script src="//mtschirs.github.io/js-objectdetect/js/objectdetect.frontalface_alt.js"></script>
+  <script src="//mtschirs.github.io/js-objectdetect/js/objectdetect.frontalface.js"></script>
+  <script src="//mtschirs.github.io/js-objectdetect/js/objectdetect.fullbody.js"></script>
+  <script src="//mtschirs.github.io/js-objectdetect/js/objectdetect.handfist.js"></script>
+  <script src="//mtschirs.github.io/js-objectdetect/js/objectdetect.handopen.js"></script>
+  <script src="//mtschirs.github.io/js-objectdetect/js/objectdetect.mouth.js"></script>
+  <script src="//mtschirs.github.io/js-objectdetect/js/objectdetect.profileface.js"></script>
+  <script src="//mtschirs.github.io/js-objectdetect/js/objectdetect.smile.js"></script>
+  <script src="//mtschirs.github.io/js-objectdetect/js/objectdetect.upperbody.js"></script>
+
+  <script src="//mtschirs.github.io/js-objectdetect/examples/js/jquery.js"></script>
+  <title>Gesture Scroll Example</title>
+</head>
+
+<body>
+  <canvas id="canvas"></canvas>
+
+  <script>
+    function play() {
+      compatibility.requestAnimationFrame(function () {
+        setTimeout(play, LATENCY)
+      })
+
+      if (video.paused) {
+        video.play()
+      }
+
+      if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+        return
+      }
+
+      /* Prepare the detectors once the video dimensions are known: */
+      if (!detectors) {
+        var width = ~~(80 * video.videoWidth / video.videoHeight)
+        var height = 80
+        var detectors = DETECTORS.map(function (metaDetector) {
+          var detector = new objectdetect.detector(width, height, 1.1, objectdetect[metaDetector.name])
+          detector.metadata = metaDetector
+          return detector
+        })
+
+        /* Draw video overlay: */
+        canvas.width = ~~(480 * video.videoWidth / video.videoHeight)
+        canvas.height = 480
+      }
+
+      context.drawImage(video, 0, 0, canvas.clientWidth, canvas.clientHeight)
+
+      detectors.forEach(function (detector) {
+        detector.detect(video, 1).forEach(function (coord) {
+          /* Rescale coordinates from detector to video coordinate space: */
+          coord[0] *= video.videoWidth  / detector.canvas.width
+          coord[1] *= video.videoHeight / detector.canvas.height
+          coord[2] *= video.videoWidth  / detector.canvas.width
+          coord[3] *= video.videoHeight / detector.canvas.height
+
+          /* Draw coordinates on video overlay: */
+          context.beginPath()
+          context.lineWidth = 2
+          context.rect(
+            coord[0] / video.videoWidth  * canvas.clientWidth,
+            coord[1] / video.videoHeight * canvas.clientHeight,
+            coord[2] / video.videoWidth  * canvas.clientWidth,
+            coord[3] / video.videoHeight * canvas.clientHeight
+          )
+
+          // Use the metadata previously set for custom rendering
+          context.strokeStyle = detector.metadata.frameColor
+          context.fillStyle = detector.metadata.frameColor
+          context.fillText(
+            detector.metadata.commonName,
+            coord[0] / video.videoWidth  * canvas.clientWidth,
+            coord[1] / video.videoHeight * canvas.clientHeight - 5
+          )
+
+          context.stroke()
+        })
+      })
+    }
+  </script>
+
+  <script>
+    var LATENCY = 1000 / 60
+    var DETECTORS = [
+      { name: 'upperbody',       commonName: 'person', frameColor: 'blue'   },
+      { name: 'frontalface',     commonName: 'face',   frameColor: 'yellow' }
+    ]
+
+    var canvas = document.getElementById('canvas')
+    var context = canvas.getContext('2d')
+    var video = document.createElement('video')
+    var detector = null
+
+    try {
+      compatibility.getUserMedia({ video: true }, function(stream) {
+        try {
+          video.src = compatibility.URL.createObjectURL(stream)
+        } catch (error) {
+          video.src = stream
+        }
+        compatibility.requestAnimationFrame(play)
+      }, function (error) {
+        alert("WebRTC not available")
+      })
+    } catch (error) {
+      alert(error)
+    }
+  </script>
+</body>
+</html>
